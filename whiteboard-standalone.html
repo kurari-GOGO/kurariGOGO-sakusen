@@ -2,245 +2,198 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Raid Strat Whiteboard (Standalone)</title>
     <style>
-      html, body { margin: 0; background: #0b0b0f; color: #fff; font-family: ui-sans-serif, system-ui, -apple-system;}
-      .container { max-width: 1400px; margin: 0 auto; padding: 16px; }
-      .row { display: flex; gap: 16px; }
-      .panel { width: 300px; flex-shrink: 0; }
-      .btn { padding: 6px 10px; border-radius: 12px; border: 1px solid #555; margin-right: 8px; margin-bottom: 8px; background: transparent; color: #fff; cursor: pointer; }
-      .btn.active { background: #fff; color: #000; }
-      .canvas { flex: 1; border-radius: 16px; overflow: hidden; border: 1px solid #222; box-shadow: 0 0 0 1px #111; }
-      input[type='text'] { width: 100%; padding: 8px 12px; border-radius: 10px; background: transparent; border: 1px solid #555; color: #fff; }
-      .hint { font-size: 12px; opacity: 0.7; }
+      html,body{margin:0;background:#0b0b0f;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system}
+      .container{max-width:1400px;margin:0 auto;padding:16px}
+      .row{display:flex;gap:16px}
+      .panel{width:300px;flex-shrink:0}
+      .btn{padding:6px 10px;border-radius:12px;border:1px solid #555;margin-right:8px;margin-bottom:8px;background:transparent;color:#fff;cursor:pointer}
+      .btn.active{background:#fff;color:#000}
+      .canvas{flex:1;border-radius:16px;overflow:hidden;border:1px solid #222;box-shadow:0 0 0 1px #111}
+      input[type="text"]{width:100%;padding:8px 12px;border-radius:10px;background:transparent;border:1px solid #555;color:#fff}
+      .hint{font-size:12px;opacity:.7}
     </style>
   </head>
   <body>
     <div id="root"></div>
 
-    <!-- React & ecosystem -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Konva & react-konva -->
-    <script src="https://unpkg.com/konva@9/konva.min.js"></script>
-    <script src="https://unpkg.com/react-konva@18/umd/react-konva.js"></script>
-    <!-- Babel for in-browser JSX transpile -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/konva@9/konva.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-konva@18/umd/react-konva.min.js"></script>
+    <!-- Babel (JSXをブラウザでトランスパイル) -->
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel">
       const { useRef, useState, useEffect } = React;
-      const { Stage, Layer, Rect, Circle, Text, Arrow, Line, Image: KonvaImage, Group } = ReactKonva;
+      const { Stage, Layer, Rect, Circle, Text, Arrow, Line, Image: KonvaImage, Group, RegularPolygon } = ReactKonva;
 
-      // Simple uuid
-      const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
+      const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+        const r=Math.random()*16|0, v=c==='x'?r:(r&0x3|0x8); return v.toString(16);
       });
 
-      const Grid = ({ width, height, size = 40 }) => {
-        const lines = [];
-        for (let i = 0; i < width / size; i++) {
-          lines.push(<Line key={'v'+i} points={[i * size, 0, i * size, height]} stroke="#2a2a2a" strokeWidth={1} />);
-        }
-        for (let j = 0; j < height / size; j++) {
-          lines.push(<Line key={'h'+j} points={[0, j * size, width, j * size]} stroke="#2a2a2a" strokeWidth={1} />);
-        }
+      const Grid = ({width,height,size=40})=>{
+        const lines=[];
+        for(let i=0;i<width/size;i++){ lines.push(<Line key={'v'+i} points={[i*size,0,i*size,height]} stroke="#2a2a2a" strokeWidth={1}/>);}
+        for(let j=0;j<height/size;j++){ lines.push(<Line key={'h'+j} points={[0,j*size,width,j*size]} stroke="#2a2a2a" strokeWidth={1}/>);}
         return <Group opacity={0.35}>{lines}</Group>;
       };
 
-      const ToolButton = ({ active, onClick, children }) => (
-        <button className={'btn' + (active ? ' active' : '')} onClick={onClick}>{children}</button>
+      const ToolButton = ({active,onClick,children}) => (
+        <button className={'btn'+(active?' active':'')} onClick={onClick}>{children}</button>
       );
 
-const defaultPalette = [
-  { label: "タンク", color: "#ff6b6b" },
-  { label: "近接DPS", color: "#feca57" },
-  { label: "キャスターDPS", color: "#5f27cd" },
-  { label: "ピュアヒーラー", color: "#48dbfb" },
-  { label: "バリアヒーラー", color: "#1dd1a1" }
-];
+      const defaultPalette = [
+        { label:"タンク",        color:"#ff6b6b" },
+        { label:"近接DPS",      color:"#feca57" },
+        { label:"キャスターDPS", color:"#5f27cd" },
+        { label:"ピュアヒーラー", color:"#48dbfb" },
+        { label:"バリアヒーラー", color:"#1dd1a1" },
+        { label:"BOSS",          color:"#ffffff" },
+        { label:"雑魚",          color:"#c0c0c0" },
+      ];
 
-      const modes = { SELECT: 'SELECT', ARROW: 'ARROW', PEN: 'PEN', RULER: 'RULER', PING: 'PING' };
+      const modes = { SELECT:'SELECT', ARROW:'ARROW', PEN:'PEN', RULER:'RULER', PING:'PING', CIRCLE:'CIRCLE' };
 
-      function App() {
+      function App(){
         const stageRef = useRef(null);
-        const [stageSize, setStageSize] = useState({ width: 1100, height: 680 });
-        const [tokens, setTokens] = useState([]);
-        const [shapes, setShapes] = useState([]);
-        const [mode, setMode] = useState(modes.SELECT);
-        const [isDrawing, setIsDrawing] = useState(false);
-        const [currentLine, setCurrentLine] = useState(null);
-        const [arrowStart, setArrowStart] = useState(null);
-        const [ruler, setRuler] = useState(null);
-        const [bgUrl, setBgUrl] = useState('');
-        const [bgImage, setBgImage] = useState(null);
+        const [stageSize,setStageSize]=useState({width:1100,height:680});
+        const [tokens,setTokens]=useState([]);
+        const [shapes,setShapes]=useState([]);
+        const [mode,setMode]=useState(modes.SELECT);
+        const [isDrawing,setIsDrawing]=useState(false);
+        const [currentLine,setCurrentLine]=useState(null);
+        const [arrowStart,setArrowStart]=useState(null);
+        const [ruler,setRuler]=useState(null);
+        const [bgUrl,setBgUrl]=useState('');
+        const [bgImage,setBgImage]=useState(null);
+        const [circleStart,setCircleStart]=useState(null);
 
-        useEffect(() => {
-          const onResize = () => {
-            const w = Math.min(window.innerWidth - 360, 1400);
-            const h = Math.min(window.innerHeight - 120, 900);
-            setStageSize({ width: Math.max(800, w), height: Math.max(520, h) });
+        useEffect(()=>{
+          const onResize=()=>{
+            const w=Math.min(window.innerWidth-360,1400);
+            const h=Math.min(window.innerHeight-120,900);
+            setStageSize({width:Math.max(800,w),height:Math.max(520,h)});
           };
-          onResize();
-          window.addEventListener('resize', onResize);
-          return () => window.removeEventListener('resize', onResize);
-        }, []);
+          onResize(); window.addEventListener('resize',onResize);
+          return ()=>window.removeEventListener('resize',onResize);
+        },[]);
 
-        useEffect(() => {
-          if (!bgUrl) return setBgImage(null);
-          const img = new window.Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => setBgImage(img);
-          img.onerror = () => alert('背景画像の読み込みに失敗しました');
-          img.src = bgUrl;
-        }, [bgUrl]);
+        useEffect(()=>{
+          if(!bgUrl){ setBgImage(null); return; }
+          const img=new window.Image(); img.crossOrigin='anonymous';
+          img.onload=()=>setBgImage(img); img.onerror=()=>alert('背景画像の読み込みに失敗しました'); img.src=bgUrl;
+        },[bgUrl]);
 
-        const addToken = (label, color) => {
-          setTokens(t => [...t, { id: uuid(), x: stageSize.width/2 + Math.random()*40-20, y: stageSize.height/2 + Math.random()*40-20, label, color, aura: 0 }]);
+        const addToken=(label,color)=>setTokens(t=>[...t,{id:uuid(),x:stageSize.width/2,y:stageSize.height/2,label,color,aura:0}]);
+        const toggleAura=id=>setTokens(t=>t.map(k=>k.id===id?{...k,aura:k.aura===0?100:k.aura===100?150:0}:k));
+        const onWheel=(e,id)=>{ e.evt.preventDefault(); const d=e.evt.deltaY>0?-5:5; setTokens(t=>t.map(k=>k.id===id?{...k,aura:Math.max(0,k.aura+d)}:k)); };
+
+        const exportPNG=()=>{
+          const uri=stageRef.current.toDataURL({pixelRatio:2});
+          const a=document.createElement('a'); a.download=`raid-whiteboard-${Date.now()}.png`; a.href=uri; a.click();
+        };
+        const clearBoard=()=>{ if(!confirm('盤面をクリアします。よろしいですか？'))return; setTokens([]); setShapes([]); setRuler(null); };
+
+        const md=(e)=>{ const pos=e.target.getStage().getPointerPosition();
+          if(mode===modes.PEN){ setIsDrawing(true); const ln={id:uuid(),type:'line',points:[pos.x,pos.y],tension:.4}; setCurrentLine(ln); setShapes(s=>[...s,ln]); }
+          else if(mode===modes.ARROW){ setArrowStart(pos); }
+          else if(mode===modes.RULER){ setRuler({x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y}); }
+          else if(mode===modes.PING){ const id=uuid(); setShapes(s=>[...s,{id,type:'ping',x:pos.x,y:pos.y}]); setTimeout(()=>setShapes(s=>s.filter(it=>it.id!==id)),900); }
+          else if(mode===modes.CIRCLE){ setCircleStart(pos); setShapes(s=>[...s,{id:'circle-preview',type:'circle-preview',x:pos.x,y:pos.y,r:0}]); }
+        };
+        const mm=(e)=>{ const pos=e.target.getStage().getPointerPosition();
+          if(mode===modes.PEN&&isDrawing) setShapes(s=>s.map(it=>it.id===currentLine.id?{...it,points:[...it.points,pos.x,pos.y]}:it));
+          if(mode===modes.ARROW&&arrowStart) setShapes(s=>[...s.filter(it=>it.type!=='arrow-preview'),{id:'preview',type:'arrow-preview',points:[arrowStart.x,arrowStart.y,pos.x,pos.y]}]);
+          if(mode===modes.RULER&&ruler) setRuler({...ruler,x2:pos.x,y2:pos.y});
+          if(mode===modes.CIRCLE&&circleStart){ const r=Math.hypot(pos.x-circleStart.x,pos.y-circleStart.y); setShapes(s=>s.map(it=>it.type==='circle-preview'?{...it,r}:it)); }
+        };
+        const mu=(e)=>{ if(mode===modes.PEN){ setIsDrawing(false); setCurrentLine(null); }
+          if(mode===modes.ARROW&&arrowStart){ const pos=e.target.getStage().getPointerPosition(); setShapes(s=>[...s.filter(it=>it.type!=='arrow-preview'),{id:uuid(),type:'arrow',points:[arrowStart.x,arrowStart.y,pos.x,pos.y]}]); setArrowStart(null); }
+          if(mode===modes.RULER&&ruler) setTimeout(()=>setRuler(null),1200);
+          if(mode===modes.CIRCLE&&circleStart){ const pos=e.target.getStage().getPointerPosition(); const r=Math.hypot(pos.x-circleStart.x,pos.y-circleStart.y); setShapes(s=>[...s.filter(it=>it.type!=='circle-preview'),{id:uuid(),type:'circle',x:circleStart.x,y:circleStart.y,r}]); setCircleStart(null); }
         };
 
-        const toggleAura = (id) => {
-          setTokens(t => t.map(tk => tk.id === id ? { ...tk, aura: tk.aura === 0 ? 100 : tk.aura === 100 ? 150 : 0 } : tk));
-        };
-
-        const onWheel = (e, id) => {
-          e.evt.preventDefault();
-          const delta = e.evt.deltaY > 0 ? -5 : 5;
-          setTokens(t => t.map(tk => tk.id === id ? { ...tk, aura: Math.max(0, tk.aura + delta) } : tk));
-        };
-
-        const exportPNG = () => {
-          const uri = stageRef.current.toDataURL({ pixelRatio: 2 });
-          const a = document.createElement('a');
-          a.download = `raid-whiteboard-${Date.now()}.png`;
-          a.href = uri;
-          a.click();
-        };
-
-        const clearBoard = () => {
-          if (!confirm('盤面をクリアします。よろしいですか？')) return;
-          setTokens([]); setShapes([]); setRuler(null);
-        };
-
-        const handleStageMouseDown = (e) => {
-          const pos = e.target.getStage().getPointerPosition();
-          if (mode === modes.PEN) {
-            setIsDrawing(true);
-            const newLine = { id: uuid(), type: 'line', points: [pos.x, pos.y], tension: 0.4 };
-            setCurrentLine(newLine); setShapes(s => [...s, newLine]);
-          } else if (mode === modes.ARROW) {
-            setArrowStart(pos);
-          } else if (mode === modes.RULER) {
-            setRuler({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y });
-          } else if (mode === modes.PING) {
-            const id = uuid();
-            setShapes(s => [...s, { id, type: 'ping', x: pos.x, y: pos.y }]);
-            setTimeout(() => setShapes(s => s.filter(it => it.id !== id)), 900);
-          }
-        };
-
-        const handleStageMouseMove = (e) => {
-          const pos = e.target.getStage().getPointerPosition();
-          if (mode === modes.PEN && isDrawing) {
-            setShapes(s => s.map(it => it.id === currentLine.id ? { ...it, points: [...it.points, pos.x, pos.y] } : it));
-          }
-          if (mode === modes.ARROW && arrowStart) {
-            setShapes(s => [...s.filter(it => it.type !== 'arrow-preview'), { id: 'preview', type: 'arrow-preview', points: [arrowStart.x, arrowStart.y, pos.x, pos.y] }]);
-          }
-          if (mode === modes.RULER && ruler) setRuler({ ...ruler, x2: pos.x, y2: pos.y });
-        };
-
-        const handleStageMouseUp = (e) => {
-          if (mode === modes.PEN) { setIsDrawing(false); setCurrentLine(null); }
-          if (mode === modes.ARROW && arrowStart) {
-            const pos = e.target.getStage().getPointerPosition();
-            setShapes(s => [...s.filter(it => it.type !== 'arrow-preview'), { id: uuid(), type: 'arrow', points: [arrowStart.x, arrowStart.y, pos.x, pos.y] }]);
-            setArrowStart(null);
-          }
-          if (mode === modes.RULER && ruler) setTimeout(() => setRuler(null), 1200);
-        };
-
-        const distance = (x1,y1,x2,y2) => Math.round(Math.hypot(x2-x1, y2-y1));
+        const dist=(x1,y1,x2,y2)=>Math.round(Math.hypot(x2-x1,y2-y1));
 
         return (
           <div className="container">
             <div className="row">
               <div className="panel">
-                <h1 style={{fontSize:20, fontWeight:700, marginBottom:12}}>Raid Strat Whiteboard</h1>
+                <h1 style={{fontSize:20,fontWeight:700,marginBottom:12}}>Raid Strat Whiteboard</h1>
                 <div style={{marginBottom:12}}>
                   <div className="hint" style={{marginBottom:4}}>Mode</div>
-                  <div style={{display:'flex', flexWrap:'wrap'}}>
+                  <div style={{display:'flex',flexWrap:'wrap'}}>
                     <ToolButton active={mode===modes.SELECT} onClick={()=>setMode(modes.SELECT)}>選択</ToolButton>
-                    <ToolButton active={mode===modes.ARROW} onClick={()=>setMode(modes.ARROW)}>矢印</ToolButton>
-                    <ToolButton active={mode===modes.PEN} onClick={()=>setMode(modes.PEN)}>ペン</ToolButton>
-                    <ToolButton active={mode===modes.RULER} onClick={()=>setMode(modes.RULER)}>定規</ToolButton>
-                    <ToolButton active={mode===modes.PING} onClick={()=>setMode(modes.PING)}>ピン</ToolButton>
+                    <ToolButton active={mode===modes.ARROW}  onClick={()=>setMode(modes.ARROW)}>矢印</ToolButton>
+                    <ToolButton active={mode===modes.PEN}    onClick={()=>setMode(modes.PEN)}>ペン</ToolButton>
+                    <ToolButton active={mode===modes.RULER}  onClick={()=>setMode(modes.RULER)}>定規</ToolButton>
+                    <ToolButton active={mode===modes.PING}   onClick={()=>setMode(modes.PING)}>ピン</ToolButton>
+                    <ToolButton active={mode===modes.CIRCLE} onClick={()=>setMode(modes.CIRCLE)}>円AoE</ToolButton>
                   </div>
-                  <p className="hint">・トークン上でホイール：範囲半径変更 / クリック：半径トグル</p>
+                  <p className="hint">・トークン上でホイール：範囲半径変更 / クリック：範囲トグル</p>
                 </div>
 
                 <div style={{marginBottom:12}}>
                   <div className="hint" style={{marginBottom:4}}>Palette</div>
-                  <div style={{display:'flex', flexWrap:'wrap'}}>
-                    {defaultPalette.map(p => (
-                      <button key={p.label} onClick={()=>addToken(p.label, p.color)} className="btn" style={{background:p.color, color:'#0b0b0f', fontWeight:700}}>{p.label}</button>
+                  <div style={{display:'flex',flexWrap:'wrap'}}>
+                    {defaultPalette.map(p=>(
+                      <button key={p.label} onClick={()=>addToken(p.label,p.color)} className="btn" style={{background:p.color,color:'#0b0b0f',fontWeight:700}}>{p.label}</button>
                     ))}
                   </div>
                 </div>
 
                 <div style={{marginBottom:12}}>
                   <div className="hint" style={{marginBottom:4}}>背景URL</div>
-                  <input type="text" value={bgUrl} onChange={e=>setBgUrl(e.target.value)} placeholder="画像URLを貼り付け" />
+                  <input type="text" value={bgUrl} onChange={e=>setBgUrl(e.target.value)} placeholder="画像URLを貼り付け"/>
                   <p className="hint">（例：フィールドマップの画像）</p>
                 </div>
 
-                <div style={{marginTop:16, display:'flex', flexWrap:'wrap'}}>
+                <div style={{marginTop:16,display:'flex',flexWrap:'wrap'}}>
                   <button className="btn active" onClick={exportPNG}>PNGを書き出し</button>
                   <button className="btn" onClick={clearBoard}>クリア</button>
                 </div>
 
-                <div className="hint" style={{marginTop:24, lineHeight:1.6}}>
-                  ・ドラッグでユニット移動。<br/>・クリックで範囲リングを表示/切替。<br/>・矢印モード：ドラッグで動線。<br/>・ペン：フリーハンド書き込み。<br/>・定規：距離表示（自動消去）。<br/>・ピン：一時的な強調。
+                <div className="hint" style={{marginTop:24,lineHeight:1.6}}>
+                  ・ドラッグでユニット移動。<br/>・クリックで範囲リングを表示/切替。<br/>・矢印モード：ドラッグで動線。<br/>・ペン：フリーハンド書き込み。<br/>・定規：距離表示（自動消去）。<br/>・ピン：一時的な強調。<br/>・円AoE：中心クリック→ドラッグで半径決定。
                 </div>
               </div>
 
               <div className="canvas">
-                <Stage
-                  width={stageSize.width}
-                  height={stageSize.height}
-                  ref={stageRef}
-                  onMouseDown={handleStageMouseDown}
-                  onMousemove={handleStageMouseMove}
-                  onMouseup={handleStageMouseUp}
-                  style={{ background: "#111318" }}
-                >
+                <Stage width={stageSize.width} height={stageSize.height}
+                  ref={stageRef} onMouseDown={md} onMousemove={mm} onMouseup={mu}
+                  style={{background:"#111318"}}>
                   <Layer>
-                    <Rect x={0} y={0} width={stageSize.width} height={stageSize.height} fill="#111318" />
-                    {bgImage && (<KonvaImage image={bgImage} x={0} y={0} width={stageSize.width} height={stageSize.height} opacity={0.9} />)}
-                    <Grid width={stageSize.width} height={stageSize.height} size={40} />
-                    {shapes.map((s) => {
-                      if (s.type === "line") return <Line key={s.id} points={s.points} stroke="#ffffff" strokeWidth={2} lineCap="round" lineJoin="round" tension={s.tension || 0} />;
-                      if (s.type === "arrow" || s.type === "arrow-preview") return <Arrow key={s.id} points={s.points} stroke="#ffffff" fill="#ffffff" pointerWidth={10} pointerLength={10} strokeWidth={2} opacity={s.type === "arrow-preview" ? 0.5 : 1} />;
-                      if (s.type === "ping") return <Circle key={s.id} x={s.x} y={s.y} radius={20} stroke="#ffd166" strokeWidth={4} opacity={0.8} />;
+                    <Rect x={0} y={0} width={stageSize.width} height={stageSize.height} fill="#111318"/>
+                    {bgImage && <KonvaImage image={bgImage} x={0} y={0} width={stageSize.width} height={stageSize.height} opacity={0.9}/>}
+                    <Grid width={stageSize.width} height={stageSize.height} size={40}/>
+                    {shapes.map(s=>{
+                      if(s.type==='line') return <Line key={s.id} points={s.points} stroke="#fff" strokeWidth={2} lineCap="round" lineJoin="round" tension={s.tension||0}/>;
+                      if(s.type==='arrow' || s.type==='arrow-preview') return <Arrow key={s.id} points={s.points} stroke="#fff" fill="#fff" pointerWidth={10} pointerLength={10} strokeWidth={2} opacity={s.type==='arrow-preview'?0.5:1}/>;
+                      if(s.type==='ping') return <Circle key={s.id} x={s.x} y={s.y} radius={20} stroke="#ffd166" strokeWidth={4} opacity={0.8}/>;
+                      if(s.type==='circle' || s.type==='circle-preview') return <Circle key={s.id} x={s.x} y={s.y} radius={s.r} stroke="#fff" strokeWidth={2} dash={s.type==='circle-preview'?[6,6]:undefined} opacity={s.type==='circle-preview'?0.6:1}/>;
                       return null;
                     })}
-                    {tokens.map((t) => (
-                      <Group key={t.id} x={t.x} y={t.y} draggable onDragEnd={(e) => {
-                        const { x, y } = e.target.position();
-                        setTokens((arr) => arr.map((it) => (it.id === t.id ? { ...it, x, y } : it)));
-                      }} onWheel={(e) => onWheel(e, t.id)} onClick={() => toggleAura(t.id)}>
-                        {t.aura > 0 && (
-                          <Circle x={0} y={0} radius={t.aura} stroke="#ffffff" dash={[6, 6]} opacity={0.4} />
-                        )}
-                        <Circle x={0} y={0} radius={18} fill={t.color} shadowBlur={8} />
-                        <Text text={t.label} x={-14} y={-8} width={28} align="center" fontStyle="700" fontSize={12} fill="#0b0b0f" />
+                    {tokens.map(t=>(
+                      <Group key={t.id} x={t.x} y={t.y} draggable
+                        onDragEnd={e=>{const {x,y}=e.target.position(); setTokens(arr=>arr.map(it=>it.id===t.id?{...it,x,y}:it));}}
+                        onWheel={e=>onWheel(e,t.id)} onClick={()=>toggleAura(t.id)}>
+                        {t.aura>0 && <Circle x={0} y={0} radius={t.aura} stroke="#fff" dash={[6,6]} opacity={0.4}/>}
+                        {t.label==='BOSS'
+                          ? <RegularPolygon x={0} y={0} sides={3} radius={20} fill={t.color} shadowBlur={8}/>
+                          : <Circle x={0} y={0} radius={18} fill={t.color} shadowBlur={8}/>
+                        }
+                        <Text text={t.label} x={-14} y={-8} width={28} align="center" fontStyle="700" fontSize={12} fill="#0b0b0f"/>
                       </Group>
                     ))}
                     {ruler && (
                       <Group>
-                        <Line points={[ruler.x1, ruler.y1, ruler.x2, ruler.y2]} stroke="#fffa" strokeWidth={2} dash={[8, 6]} />
-                        <Text x={ruler.x2 + 8} y={ruler.y2 + 8} text={`${distance(ruler.x1, ruler.y1, ruler.x2, ruler.y2)} px`} fill="#fff" fontSize={12} />
+                        <Line points={[ruler.x1,ruler.y1,ruler.x2,ruler.y2]} stroke="#fffa" strokeWidth={2} dash={[8,6]}/>
+                        <Text x={ruler.x2+8} y={ruler.y2+8} text={`${dist(ruler.x1,ruler.y1,ruler.x2,ruler.y2)} px`} fill="#fff" fontSize={12}/>
                       </Group>
                     )}
                   </Layer>
@@ -251,8 +204,7 @@ const defaultPalette = [
         );
       }
 
-      const root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(<App />);
+      ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
     </script>
   </body>
 </html>
