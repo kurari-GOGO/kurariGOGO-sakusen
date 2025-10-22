@@ -15,14 +15,14 @@
         max-width: 1000px;
         margin: auto;
         padding: 16px;
+        display: flex;
       }
       .panel {
-        width: 280px;
-        float: left;
+        width: 260px;
         margin-right: 16px;
       }
       .canvas {
-        width: calc(100% - 320px);
+        flex: 1;
         height: 700px;
         background: #111;
         border-radius: 12px;
@@ -64,99 +64,98 @@
       <canvas id="board" class="canvas"></canvas>
     </div>
 
-    <!-- CDN scripts -->
+    <!-- Konva.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/konva@9.0.0/konva.min.js"></script>
     <script>
-      const stage = new Konva.Stage({
-        container: 'board',
-        width: window.innerWidth - 350,
-        height: 700,
-      });
-      const layer = new Konva.Layer();
-      stage.add(layer);
-
-      // Palette
-      const palette = [
-        { label: 'タンク', color: '#ff6b6b' },
-        { label: '近接DPS', color: '#feca57' },
-        { label: 'キャスターDPS', color: '#5f27cd' },
-        { label: 'ピュアヒーラー', color: '#48dbfb' },
-        { label: 'バリアヒーラー', color: '#1dd1a1' },
-        { label: 'BOSS', color: '#ffffff' },
-        { label: '雑魚', color: '#c0c0c0' },
-      ];
-
-      const paletteDiv = document.getElementById('palette');
-      palette.forEach(p => {
-        const btn = document.createElement('button');
-        btn.innerHTML = `<span class="color-sample" style="background:${p.color}"></span>${p.label}`;
-        btn.onclick = () => addCircle(p.color, p.label);
-        paletteDiv.appendChild(btn);
-      });
-
-      // Drawing setup
-      let isDrawing = false;
-      let currentLine;
-      let mode = 'pen';
-
-      document.getElementById('pen').onclick = () => (mode = 'pen');
-      document.getElementById('arrow').onclick = () => (mode = 'arrow');
-      document.getElementById('circle').onclick = () => (mode = 'circle');
-      document.getElementById('clear').onclick = () => {
-        layer.destroyChildren();
-        layer.draw();
-      };
-
-      function addCircle(color, label) {
-        const c = new Konva.Circle({
-          x: 100 + Math.random() * 400,
-          y: 100 + Math.random() * 400,
-          radius: 22,
-          fill: color,
-          stroke: '#333',
-          strokeWidth: 2,
-          draggable: true,
+      window.addEventListener("DOMContentLoaded", () => {
+        const stage = new Konva.Stage({
+          container: 'board',
+          width: document.querySelector('.canvas').clientWidth,
+          height: 700,
         });
-        const t = new Konva.Text({
-          text: label,
-          fontSize: 12,
-          fill: '#000',
-          align: 'center',
-          width: 44,
-          offsetX: 22,
-          offsetY: -6,
+
+        const layer = new Konva.Layer();
+        stage.add(layer);
+
+        const palette = [
+          { label: 'タンク', color: '#ff6b6b' },
+          { label: '近接DPS', color: '#feca57' },
+          { label: 'キャスターDPS', color: '#5f27cd' },
+          { label: 'ピュアヒーラー', color: '#48dbfb' },
+          { label: 'バリアヒーラー', color: '#1dd1a1' },
+          { label: 'BOSS', color: '#ffffff' },
+          { label: '雑魚', color: '#c0c0c0' },
+        ];
+
+        const paletteDiv = document.getElementById('palette');
+        palette.forEach(p => {
+          const btn = document.createElement('button');
+          btn.innerHTML = `<span class="color-sample" style="background:${p.color}"></span>${p.label}`;
+          btn.onclick = () => addCircle(p.color, p.label);
+          paletteDiv.appendChild(btn);
         });
-        const g = new Konva.Group({ draggable: true });
-        g.add(c);
-        g.add(t);
-        layer.add(g);
-        layer.draw();
-      }
 
-      // Pen mode
-      stage.on('mousedown touchstart', () => {
-        if (mode !== 'pen') return;
-        isDrawing = true;
-        const pos = stage.getPointerPosition();
-        currentLine = new Konva.Line({
-          stroke: '#fff',
-          strokeWidth: 2,
-          globalCompositeOperation: 'source-over',
-          points: [pos.x, pos.y],
+        let isDrawing = false;
+        let currentLine;
+        let mode = 'pen';
+
+        document.getElementById('pen').onclick = () => (mode = 'pen');
+        document.getElementById('arrow').onclick = () => (mode = 'arrow');
+        document.getElementById('circle').onclick = () => (mode = 'circle');
+        document.getElementById('clear').onclick = () => {
+          layer.destroyChildren();
+          layer.draw();
+        };
+
+        function addCircle(color, label) {
+          const c = new Konva.Circle({
+            x: Math.random() * 400 + 100,
+            y: Math.random() * 400 + 100,
+            radius: 22,
+            fill: color,
+            stroke: '#333',
+            strokeWidth: 2,
+            draggable: true,
+          });
+          const t = new Konva.Text({
+            text: label,
+            fontSize: 12,
+            fill: '#000',
+            align: 'center',
+            width: 44,
+            offsetX: 22,
+            offsetY: -6,
+          });
+          const g = new Konva.Group({ draggable: true });
+          g.add(c);
+          g.add(t);
+          layer.add(g);
+          layer.draw();
+        }
+
+        stage.on('mousedown touchstart', () => {
+          if (mode !== 'pen') return;
+          isDrawing = true;
+          const pos = stage.getPointerPosition();
+          currentLine = new Konva.Line({
+            stroke: '#fff',
+            strokeWidth: 2,
+            points: [pos.x, pos.y],
+          });
+          layer.add(currentLine);
         });
-        layer.add(currentLine);
-      });
 
-      stage.on('mouseup touchend', () => {
-        isDrawing = false;
-      });
+        stage.on('mouseup touchend', () => {
+          isDrawing = false;
+        });
 
-      stage.on('mousemove touchmove', () => {
-        if (!isDrawing || mode !== 'pen') return;
-        const pos = stage.getPointerPosition();
-        const newPoints = currentLine.points().concat([pos.x, pos.y]);
-        currentLine.points(newPoints);
-        layer.batchDraw();
+        stage.on('mousemove touchmove', () => {
+          if (!isDrawing || mode !== 'pen') return;
+          const pos = stage.getPointerPosition();
+          const newPoints = currentLine.points().concat([pos.x, pos.y]);
+          currentLine.points(newPoints);
+          layer.batchDraw();
+        });
       });
     </script>
   </body>
