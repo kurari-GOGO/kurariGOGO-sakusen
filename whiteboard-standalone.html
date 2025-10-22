@@ -13,13 +13,15 @@
       }
       .container {
         max-width: 1000px;
-        margin: auto;
+        margin: 20px auto;
         padding: 16px;
         display: flex;
+        align-items: flex-start;
       }
       .panel {
-        width: 260px;
+        width: 250px;
         margin-right: 16px;
+        flex-shrink: 0;
       }
       .canvas {
         flex: 1;
@@ -27,6 +29,7 @@
         background: #111;
         border-radius: 12px;
         border: 1px solid #333;
+        cursor: crosshair;
       }
       button {
         margin: 4px;
@@ -36,6 +39,9 @@
         color: #fff;
         border: 1px solid #555;
         cursor: pointer;
+      }
+      button:hover {
+        background: #444;
       }
       button.active {
         background: #666;
@@ -55,102 +61,120 @@
         <h2>Raid Strat Whiteboard</h2>
         <div id="palette"></div>
         <p>
-          <button id="pen">ペン</button>
-          <button id="arrow">矢印</button>
+          <button id="pen" class="active">ペン</button>
           <button id="circle">円</button>
           <button id="clear">クリア</button>
         </p>
       </div>
-      <canvas id="board" class="canvas"></canvas>
+      <div class="canvas" id="board"></div>
     </div>
 
     <!-- Konva.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/konva@9.0.0/konva.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/konva@9.3.0/konva.min.js"></script>
+
     <script>
-      window.addEventListener("DOMContentLoaded", () => {
+      window.addEventListener("load", () => {
+        const boardDiv = document.getElementById("board");
+        const width = boardDiv.clientWidth;
+        const height = 700;
+
         const stage = new Konva.Stage({
-          container: 'board',
-          width: document.querySelector('.canvas').clientWidth,
-          height: 700,
+          container: "board",
+          width: width,
+          height: height,
         });
 
         const layer = new Konva.Layer();
         stage.add(layer);
 
+        // カラーパレット
         const palette = [
-          { label: 'タンク', color: '#ff6b6b' },
-          { label: '近接DPS', color: '#feca57' },
-          { label: 'キャスターDPS', color: '#5f27cd' },
-          { label: 'ピュアヒーラー', color: '#48dbfb' },
-          { label: 'バリアヒーラー', color: '#1dd1a1' },
-          { label: 'BOSS', color: '#ffffff' },
-          { label: '雑魚', color: '#c0c0c0' },
+          { label: "タンク", color: "#ff6b6b" },
+          { label: "近接DPS", color: "#feca57" },
+          { label: "キャスターDPS", color: "#5f27cd" },
+          { label: "ピュアヒーラー", color: "#48dbfb" },
+          { label: "バリアヒーラー", color: "#1dd1a1" },
+          { label: "BOSS", color: "#ffffff" },
+          { label: "雑魚", color: "#c0c0c0" },
         ];
 
-        const paletteDiv = document.getElementById('palette');
-        palette.forEach(p => {
-          const btn = document.createElement('button');
+        const paletteDiv = document.getElementById("palette");
+        palette.forEach((p) => {
+          const btn = document.createElement("button");
           btn.innerHTML = `<span class="color-sample" style="background:${p.color}"></span>${p.label}`;
           btn.onclick = () => addCircle(p.color, p.label);
           paletteDiv.appendChild(btn);
         });
 
+        let mode = "pen";
         let isDrawing = false;
         let currentLine;
-        let mode = 'pen';
 
-        document.getElementById('pen').onclick = () => (mode = 'pen');
-        document.getElementById('arrow').onclick = () => (mode = 'arrow');
-        document.getElementById('circle').onclick = () => (mode = 'circle');
-        document.getElementById('clear').onclick = () => {
+        document.getElementById("pen").onclick = () => {
+          mode = "pen";
+          setActive("pen");
+        };
+        document.getElementById("circle").onclick = () => {
+          mode = "circle";
+          setActive("circle");
+        };
+        document.getElementById("clear").onclick = () => {
           layer.destroyChildren();
           layer.draw();
         };
 
+        function setActive(id) {
+          ["pen", "circle"].forEach((b) =>
+            document.getElementById(b).classList.remove("active")
+          );
+          document.getElementById(id).classList.add("active");
+        }
+
         function addCircle(color, label) {
-          const c = new Konva.Circle({
-            x: Math.random() * 400 + 100,
-            y: Math.random() * 400 + 100,
-            radius: 22,
-            fill: color,
-            stroke: '#333',
-            strokeWidth: 2,
+          const group = new Konva.Group({
             draggable: true,
+            x: Math.random() * (width - 100) + 50,
+            y: Math.random() * (height - 100) + 50,
           });
-          const t = new Konva.Text({
+          const circle = new Konva.Circle({
+            radius: 25,
+            fill: color,
+            stroke: "#222",
+            strokeWidth: 2,
+          });
+          const text = new Konva.Text({
             text: label,
             fontSize: 12,
-            fill: '#000',
-            align: 'center',
-            width: 44,
-            offsetX: 22,
+            fill: "#000",
+            align: "center",
+            width: 50,
+            offsetX: 25,
             offsetY: -6,
           });
-          const g = new Konva.Group({ draggable: true });
-          g.add(c);
-          g.add(t);
-          layer.add(g);
+          group.add(circle);
+          group.add(text);
+          layer.add(group);
           layer.draw();
         }
 
-        stage.on('mousedown touchstart', () => {
-          if (mode !== 'pen') return;
+        stage.on("mousedown touchstart", () => {
+          if (mode !== "pen") return;
           isDrawing = true;
           const pos = stage.getPointerPosition();
           currentLine = new Konva.Line({
-            stroke: '#fff',
+            stroke: "#fff",
             strokeWidth: 2,
             points: [pos.x, pos.y],
           });
           layer.add(currentLine);
         });
 
-        stage.on('mouseup touchend', () => {
+        stage.on("mouseup touchend", () => {
           isDrawing = false;
         });
 
-        stage.on('mousemove touchmove', () => {
-          if (!isDrawing || mode !== 'pen') return;
+        stage.on("mousemove touchmove", () => {
+          if (!isDrawing || mode !== "pen") return;
           const pos = stage.getPointerPosition();
           const newPoints = currentLine.points().concat([pos.x, pos.y]);
           currentLine.points(newPoints);
