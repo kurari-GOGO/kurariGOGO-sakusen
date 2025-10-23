@@ -1,186 +1,175 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Raid Strat Whiteboard</title>
-    <style>
-      html, body {
-        margin: 0;
-        background: #0b0b0f;
-        color: #fff;
-        font-family: ui-sans-serif, system-ui, -apple-system;
-      }
-      .container {
-        max-width: 1000px;
-        margin: 20px auto;
-        padding: 16px;
-        display: flex;
-        align-items: flex-start;
-      }
-      .panel {
-        width: 250px;
-        margin-right: 16px;
-        flex-shrink: 0;
-      }
-      .canvas {
-        flex: 1;
-        height: 700px;
-        background: #111;
-        border-radius: 12px;
-        border: 1px solid #333;
-        cursor: crosshair;
-      }
-      button {
-        margin: 4px;
-        padding: 6px 10px;
-        border-radius: 6px;
-        background: #222;
-        color: #fff;
-        border: 1px solid #555;
-        cursor: pointer;
-      }
-      button:hover {
-        background: #444;
-      }
-      button.active {
-        background: #666;
-      }
-      .color-sample {
-        display: inline-block;
-        width: 18px;
-        height: 18px;
-        border-radius: 4px;
-        margin-right: 6px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="panel">
-        <h2>Raid Strat Whiteboard</h2>
-        <div id="palette"></div>
-        <p>
-          <button id="pen" class="active">ペン</button>
-          <button id="circle">円</button>
-          <button id="clear">クリア</button>
-        </p>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raid Strat Whiteboard</title>
+  <style>
+    html, body { margin:0; background:#0b0b0f; color:#fff; font-family:ui-sans-serif,system-ui,-apple-system }
+    .wrap { max-width:1200px; margin:20px auto; padding:16px; display:flex; gap:16px; align-items:flex-start }
+    .panel { width:260px; flex-shrink:0 }
+    .canvas { flex:1; height:720px; background:#111; border:1px solid #333; border-radius:12px; cursor:crosshair }
+    h2 { margin:0 0 12px; }
+    .btn { margin:4px; padding:6px 10px; border-radius:8px; background:#222; color:#fff; border:1px solid #555; cursor:pointer }
+    .btn:hover { background:#444 }
+    .btn.active { background:#666 }
+    .color { display:inline-block; width:18px; height:18px; border-radius:4px; margin-right:6px }
+    .hint { opacity:.7; font-size:12px; margin-top:8px; line-height:1.5 }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h2>Raid Strat Whiteboard</h2>
+      <div id="palette"></div>
+      <div style="margin-top:8px">
+        <button id="pen" class="btn active">ペン</button>
+        <button id="circle" class="btn">円</button>
+        <button id="arrow" class="btn">矢印</button>
+        <button id="clear" class="btn">クリア</button>
       </div>
-      <div class="canvas" id="board"></div>
+      <div class="hint">
+        ・左の色ボタンでトークン追加（ドラッグで移動）<br>
+        ・矢印：ドラッグで方向線を描画<br>
+        ・ペン：フリーハンド線、円：中心→半径
+      </div>
     </div>
+    <div id="board" class="canvas"></div>
+  </div>
 
-    <!-- Konva.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/konva@9.3.0/konva.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/konva@9.3.0/konva.min.js"></script>
+  <script>
+    const BOSS_URL = './boss.png';
+    const ZAKO_URL = './zako.png';
 
-    <script>
-      window.addEventListener("load", () => {
-        const boardDiv = document.getElementById("board");
-        const width = boardDiv.clientWidth;
-        const height = 700;
+    const stage = new Konva.Stage({
+      container: 'board',
+      width: document.getElementById('board').clientWidth,
+      height: 720,
+    });
+    const layer = new Konva.Layer();
+    stage.add(layer);
 
-        const stage = new Konva.Stage({
-          container: "board",
-          width: width,
-          height: height,
-        });
+    // パレット
+    const palette = [
+      { label:'タンク', color:'#ff6b6b', type:'circle' },
+      { label:'近接DPS', color:'#feca57', type:'circle' },
+      { label:'キャスターDPS', color:'#5f27cd', type:'circle' },
+      { label:'ピュアヒーラー', color:'#48dbfb', type:'circle' },
+      { label:'バリアヒーラー', color:'#1dd1a1', type:'circle' },
+      { label:'BOSS', color:'#fff', type:'image', url:BOSS_URL, size:54 },
+      { label:'雑魚', color:'#ccc', type:'image', url:ZAKO_URL, size:44 },
+    ];
 
-        const layer = new Konva.Layer();
-        stage.add(layer);
+    const paletteDiv = document.getElementById('palette');
+    const imageCache = {};
+    function loadImage(url, cb){
+      if(imageCache[url]) return cb(imageCache[url]);
+      const img = new Image();
+      img.crossOrigin='anonymous';
+      img.onload=()=>{ imageCache[url]=img; cb(img); };
+      img.src=url;
+    }
 
-        // カラーパレット
-        const palette = [
-          { label: "タンク", color: "#ff6b6b" },
-          { label: "近接DPS", color: "#feca57" },
-          { label: "キャスターDPS", color: "#5f27cd" },
-          { label: "ピュアヒーラー", color: "#48dbfb" },
-          { label: "バリアヒーラー", color: "#1dd1a1" },
-          { label: "BOSS", color: "#ffffff" },
-          { label: "雑魚", color: "#c0c0c0" },
-        ];
+    palette.forEach(p=>{
+      const btn=document.createElement('button');
+      btn.className='btn';
+      btn.innerHTML=`<span class="color" style="background:${p.color}"></span>${p.label}`;
+      btn.onclick=()=>addToken(p);
+      paletteDiv.appendChild(btn);
+    });
 
-        const paletteDiv = document.getElementById("palette");
-        palette.forEach((p) => {
-          const btn = document.createElement("button");
-          btn.innerHTML = `<span class="color-sample" style="background:${p.color}"></span>${p.label}`;
-          btn.onclick = () => addCircle(p.color, p.label);
-          paletteDiv.appendChild(btn);
-        });
+    function addToken(p){
+      const x=Math.random()*(stage.width()-100)+50;
+      const y=Math.random()*(stage.height()-100)+50;
 
-        let mode = "pen";
-        let isDrawing = false;
-        let currentLine;
-
-        document.getElementById("pen").onclick = () => {
-          mode = "pen";
-          setActive("pen");
-        };
-        document.getElementById("circle").onclick = () => {
-          mode = "circle";
-          setActive("circle");
-        };
-        document.getElementById("clear").onclick = () => {
-          layer.destroyChildren();
-          layer.draw();
-        };
-
-        function setActive(id) {
-          ["pen", "circle"].forEach((b) =>
-            document.getElementById(b).classList.remove("active")
-          );
-          document.getElementById(id).classList.add("active");
-        }
-
-        function addCircle(color, label) {
-          const group = new Konva.Group({
-            draggable: true,
-            x: Math.random() * (width - 100) + 50,
-            y: Math.random() * (height - 100) + 50,
+      if(p.type==='image' && p.url){
+        loadImage(p.url,img=>{
+          const group=new Konva.Group({x,y,draggable:true});
+          const icon=new Konva.Image({
+            image:img,width:p.size||48,height:p.size||48,
+            offsetX:(p.size||48)/2,offsetY:(p.size||48)/2
           });
-          const circle = new Konva.Circle({
-            radius: 25,
-            fill: color,
-            stroke: "#222",
-            strokeWidth: 2,
-          });
-          const text = new Konva.Text({
-            text: label,
-            fontSize: 12,
-            fill: "#000",
-            align: "center",
-            width: 50,
-            offsetX: 25,
-            offsetY: -6,
-          });
-          group.add(circle);
-          group.add(text);
-          layer.add(group);
-          layer.draw();
-        }
-
-        stage.on("mousedown touchstart", () => {
-          if (mode !== "pen") return;
-          isDrawing = true;
-          const pos = stage.getPointerPosition();
-          currentLine = new Konva.Line({
-            stroke: "#fff",
-            strokeWidth: 2,
-            points: [pos.x, pos.y],
-          });
-          layer.add(currentLine);
+          group.add(icon); layer.add(group); layer.draw();
         });
+        return;
+      }
 
-        stage.on("mouseup touchend", () => {
-          isDrawing = false;
-        });
-
-        stage.on("mousemove touchmove", () => {
-          if (!isDrawing || mode !== "pen") return;
-          const pos = stage.getPointerPosition();
-          const newPoints = currentLine.points().concat([pos.x, pos.y]);
-          currentLine.points(newPoints);
-          layer.batchDraw();
-        });
+      const group=new Konva.Group({x,y,draggable:true});
+      const c=new Konva.Circle({radius:24,fill:p.color,stroke:'#222',strokeWidth:2});
+      const t=new Konva.Text({
+        text:p.label,fontSize:12,fill:'#000',align:'center',width:48,offsetX:24,offsetY:-6
       });
-    </script>
-  </body>
+      group.add(c); group.add(t); layer.add(group); layer.draw();
+    }
+
+    // モード管理
+    let mode='pen';
+    const buttons={ pen:document.getElementById('pen'), circle:document.getElementById('circle'), arrow:document.getElementById('arrow'), clear:document.getElementById('clear') };
+    function setMode(m){
+      mode=m;
+      Object.keys(buttons).forEach(k=>buttons[k].classList.toggle('active',k===m));
+    }
+    buttons.pen.onclick=()=>setMode('pen');
+    buttons.circle.onclick=()=>setMode('circle');
+    buttons.arrow.onclick=()=>setMode('arrow');
+    buttons.clear.onclick=()=>{layer.destroyChildren(); layer.draw();};
+
+    // 描画状態
+    let drawing=false, line=null, circleStart=null, circlePreview=null, arrowStart=null, arrowShape=null;
+
+    stage.on('mousedown touchstart',()=>{
+      const pos=stage.getPointerPosition();
+
+      if(mode==='pen'){
+        drawing=true;
+        line=new Konva.Line({stroke:'#fff',strokeWidth:2,points:[pos.x,pos.y]});
+        layer.add(line);
+      }
+      else if(mode==='circle'){
+        circleStart=pos;
+        circlePreview=new Konva.Circle({x:pos.x,y:pos.y,radius:1,stroke:'#fff',strokeWidth:2,dash:[8,6],opacity:0.9});
+        layer.add(circlePreview);
+      }
+      else if(mode==='arrow'){
+        arrowStart=pos;
+        arrowShape=new Konva.Arrow({
+          points:[pos.x,pos.y,pos.x,pos.y],
+          pointerLength:12,
+          pointerWidth:10,
+          fill:'#fff',
+          stroke:'#fff',
+          strokeWidth:2
+        });
+        layer.add(arrowShape);
+      }
+    });
+
+    stage.on('mousemove touchmove',()=>{
+      const pos=stage.getPointerPosition(); if(!pos) return;
+
+      if(mode==='pen' && drawing && line){
+        line.points(line.points().concat([pos.x,pos.y]));
+        layer.batchDraw();
+      }
+      else if(mode==='circle' && circlePreview && circleStart){
+        const r=Math.hypot(pos.x-circleStart.x,pos.y-circleStart.y);
+        circlePreview.radius(r); layer.batchDraw();
+      }
+      else if(mode==='arrow' && arrowShape && arrowStart){
+        arrowShape.points([arrowStart.x,arrowStart.y,pos.x,pos.y]);
+        layer.batchDraw();
+      }
+    });
+
+    stage.on('mouseup touchend',()=>{
+      if(mode==='pen'){ drawing=false; line=null; }
+      else if(mode==='circle' && circlePreview){
+        circlePreview.dash([]); circlePreview.opacity(1);
+        circlePreview=null; circleStart=null; layer.draw();
+      }
+      else if(mode==='arrow'){ arrowShape=null; arrowStart=null; layer.draw(); }
+    });
+  </script>
+</body>
 </html>
